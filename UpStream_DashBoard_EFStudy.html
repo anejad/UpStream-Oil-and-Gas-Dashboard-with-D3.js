@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        .axis {
+            font-size: 13px;
+        }
+        
+        .axis path,
+        .axis line {
+            fill: none;
+            display: none;
+        }
+        
+        h1 {
+            color: #0099FF;
+        }
+        
+        p {
+            color: #000000;
+        }
+        
+        tr {
+            background-color: #000000;
+        }
+        
+        td {
+            background-color: #0099FF;
+        }
+        
+        table {
+            color: #FFFFFF;
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Helvetica;
+            font-weight: 300;
+            padding: 20px;
+        }
+        
+        html,
+        body {
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        
+        div {
+            width: 50%;
+            height: 50%;
+            float: left;
+        }
+        
+        #top_left {
+            background: #DDD;
+        }
+        
+        #top_right {
+            background: #AAA;
+        }
+        
+        #Bottom_left {
+            background: #777;
+        }
+        
+        #Bottom_right {
+            background: #444;
+        }
+    </style>
+    <script type="text/javascript" src="./js/d3.js"></script>
+</head>
+
+<body>
+    <div id="top_left"></div>
+    <div id="top_right"></div>
+    <div id="Bottom_left"></div>
+    <div id="Bottom_right"></div>
+    <script type="text/javascript">
+        setTimeout(function() {
+
+            var formatComma = d3.format(",")
+            var margin = {
+                top: 15,
+                right: 100,
+                bottom: 15,
+                left: 100
+            };
+            //--- load the data   
+            d3.csv("./data/EfData.csv", function(EfData) {
+                d3.json("./data/EF_Counties.geojson", function(json) {
+
+                    // ------------------------------------------------------------------
+                    // (TOP LEFT VISUALIZATION)
+                    // ------------------------------------------------------------------
+
+                    var Count_ = d3.nest()
+                        .key(function(d) {
+                            return d.Location_County;
+                        })
+                        .rollup(function(v) {
+                            return v.length;
+                        })
+                        .entries(EfData);
+
+                    //sort bars based on values
+                    Count_ = Count_.sort(function(a, b) {
+                        return d3.ascending(a.value, b.value);
+                    })
+                    var newCount_ = Count_.filter(function(x) {
+                        return x.value >= 700
+                    });
+
+                    //set up svg using margin conventions - we'll need plenty of room on the left for labels
+
+                    var c10 = d3.scaleLinear().domain([1, newCount_.length])
+                        .interpolate(d3.interpolateHcl)
+                        .range([d3.rgb("#5E4FA2"), d3.rgb('#E6F598'), d3.rgb('#9E0142')]);
+
+                    var TL_Size = document.getElementById("top_left")
+                    var TL_width = TL_Size.clientWidth - margin.left - margin.right
+                    var TL_height = TL_Size.clientHeight - margin.top - margin.bottom
+
+                    var TL_svg = d3.select("#top_left").append("svg")
+                        .attr("width", TL_width + margin.left + margin.right)
+                        .attr("height", TL_height + margin.top + margin.bottom)
+                        .append("g")
+                        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                    var x = d3.scaleLinear()
+                        .range([0, TL_width]);
+
+                    var y = d3.scaleBand()
+                        .range([TL_height, 0]).padding(0.1);;
+
+                    x.domain([0, d3.max(newCount_, function(d) {
+                        return d.value;
+                    })]);
+
+                    y.domain(newCount_.map(function(d) {
+                        return d.key;
+                    }));
+
+                    var xAxis = d3.axisBottom(x);
+                    //make y axis to show bar keys
+                    var yAxis = d3.axisLeft(y);
+
+                    var TL_g = TL_svg.append("g")
+                        .attr("class", "y axis")
+                        .call(yAxis)
+
+                    var TL_bars = TL_svg.selectAll(".bar")
+                        .data(newCount_)
+                        .enter()
+                        .append("g")
+
+                    //append rects
+                    TL_bars.append("rect")
+                        .attr("class", "bar")
+                        .attr("y", function(d) {
+                            return y(d.key);
+                        })
+                        .attr("height", y.bandwidth())
+                        .attr("x", 0)
+                        .attr("fill", function(d, i) {
+                            return c10(i);
+                        })
+                        .attr("width", function(d) {
+                            return x(d.value);
+                        });
+
+                    //add a values label to the right of each bar
+                    TL_bars.append("text")
+                        .attr("class", "label")
+                        //y position of the label is halfway down the bar
+                        .attr("y", function(d) {
+                            return y(d.key) + y.bandwidth() / 2 + 4;
+                        })
+                        //x position is 3 pixels to the right of the bar
+                        .attr("x", function(d) {
+                            return x(d.value) + 3;
+                        })
+                        .text(function(d) {
+                            return formatComma(d.value);
+                        });
+                    // add textbox 
+                    TL_svg.append("text")
+                        .attr("x", (TL_width / 2))
+                        .attr("y", 0 - (margin.top / 10))
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "18px")
+                        .style("font-weight","bold")
+                        .style("text-decoration", "underline")
+                        .text("Total Number of Wells For Each County ");
+
+                    // ------------------------------------------------------------------
+                    //(TOP RIGHT VISUALIZATION) 
+                    // ------------------------------------------------------------------   
+                    var Prod_index = {
+                        0: ["Oil", "#FF0000"],
+                        1: ["Gas Condensate", "#ff9900"],
+                        2: ["Dry Gas", "#ffff00"],
+                        3: ['Wet Gas', '#d9b38c'],
+                        4: ['blank', '#cccccc']
+                    };
+
+                    var TR_Size = document.getElementById("top_right")
+                    var TR_width = TR_Size.clientWidth
+                    var TR_height = TR_Size.clientHeight
+                    var center = d3.geoCentroid(json)
+                    var scale = [3500];
+                    var offset = [TR_width / 2, TR_height / 2];
+                    var projection = d3.geoMercator().scale(scale).center(center).translate(offset);
+
+                    var path = d3.geoPath().projection(projection);
+                    var Mapsvg = d3.select("#top_right").append("svg").attr("width", TR_width).attr("height", TR_height)
+                    var TR_g = Mapsvg.append("g");
+                    projection = d3.geoMercator().center(center).scale(scale).translate(offset);
+
+                    path = path.projection(projection);
+
+                    TR_g.selectAll("path")
+                        .data(json.features)
+                        .enter()
+                        .append("path")
+                        .attr("d", path)
+                        .style("stroke-width", "1")
+                        .style("stroke", "#ffffff")
+                        .style("fill", "#000000");
+
+                    TR_g.selectAll("text")
+                        .data(json.features)
+                        .enter()
+                        .append("svg:text")
+                        .style("fill", "white")
+                        .text(function(d) {
+                            return d.properties.NAME;
+                        })
+                        .style("font-size", 8 + "px")
+                        .attr("x", function(d) {
+                            return path.centroid(d)[0];
+                        })
+                        .attr("y", function(d) {
+                            return path.centroid(d)[1];
+                        })
+
+                    //--- Plot Wells
+                    TR_g.selectAll("circle")
+                        .data(EfData)
+                        .enter()
+                        .append("circle")
+                        .attr("cx", function(d) {
+                            return projection([d.Location_SLongitude, d.Location_SLatitude])[0];
+                        })
+                        .attr("cy", function(d) {
+                            return projection([d.Location_SLongitude, d.Location_SLatitude])[1];
+                        })
+                        .attr("r", "2px")
+                        .style("stroke", "black") // set the line colour
+                        .style("stroke-width", "0.1")
+                        .style("fill", function(d) {
+                            var value = d.Prod_Type;
+                            if (value === 'OIL ') {
+                                return "#FF0000";
+                            } else if (value === 'LIQUIDS RICH GAS ') {
+                                return "#ff9900";
+                            } else if (value === 'DRY GAS ') {
+                                return "#ffff00";
+                            } else if (value === 'WET GAS ') {
+                                return "#d9b38c";
+                            } else {
+                                return "#cccccc";
+                            }
+                        })
+
+                    //--- Add Legend 
+                    var spaceCircles = [20, 40, 60, 80, 100];
+
+                    var v_ = TR_width * 0.1
+                    var svgContainer = Mapsvg.append("svg")
+
+                    var circles = svgContainer.selectAll("circle")
+                        .data(spaceCircles)
+                        .enter()
+                        .append("circle");
+
+                    var circleAttributes = circles
+                        .attr("cx", v_)
+                        .attr("cy", function(d) {
+                            return d;
+                        })
+                        .attr("r", 6)
+                        .style("fill", function(d, i) {
+                            var returnColor = Prod_index[i][1];
+                            return returnColor;
+                        });
+
+                    svgContainer.selectAll('text')
+                        .data(spaceCircles)
+                        .enter()
+                        .append("text")
+                        .attr("x", v_ + 10)
+                        .attr("y", function(d) {
+                            return d + 5;
+                        })
+                        .text(function(d, i) {
+                            var text = Prod_index[i][0];
+                            return text;
+                        });
+
+                    //--- zoom
+                    var zoom = d3.zoom().scaleExtent([1, 8]).on("zoom", zoomed);
+
+                    function zoomed() {
+                        TR_g.style("stroke-width", 1.0 / d3.event.transform.k + "px");
+                        TR_g.attr("transform", d3.event.transform); // updated for d3 v4
+                        TR_g.selectAll("text").style("font-size", 11 - 1 * d3.event.transform.k + "px");
+                        TR_g.selectAll("circle").attr("r", 3 / d3.event.transform.k);
+                        //g.style("stroke-width", 3 / (d3.event.transform.k * 2) + "px");
+                    }
+
+                    Mapsvg.call(zoom)
+                        // add textbox 
+                    Mapsvg.append("text")
+                        .attr("x", (TR_width - TR_width / 5))
+                        .attr("y", TR_height - (margin.top * 2))
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "18px")
+                        .style("font-weight","bold")
+                        .style("text-decoration", "underline")
+                        .text("Well Locations (Texas Counties)");
+                    // ------------------------------------------------------------------
+                    //(BOTTOM LEFT VISUALIZATION)  
+                    // ------------------------------------------------------------------               
+                    var parseDate = d3.timeParse("%Y-%m-%d");
+                    //EfData.forEach(function(d){ d.Date_StartDate=parseDate(d.Date_StartDate) });
+                    EfData.forEach(function(d) {
+                        var parts = d.Date_StartDate.split('-');
+                        if (parts[0] !== NaN) {
+                            d.Year = parseInt(parts[0])
+                        } else {
+                            d.Year = 0
+                        }
+                    });
+
+                    var NestedProduction = d3.nest().key(function(d) {
+                        return d.Year > 0
+                    }).key(function(d) {
+                        return d.Year;
+                    }).rollup(function(v) {
+                        return d3.mean(v, function(d) {
+                            return d.Prod_BOE6Month
+                        });
+                    }).entries(EfData);
+                    BOEPerWellPerYear = NestedProduction[0].values
+
+                    //sort bars based on values
+                    BOEPerWellPerYear = BOEPerWellPerYear.sort(function(a, b) {
+                        return d3.ascending(a.key, b.key);
+                    })
+
+                    var BL_Size = document.getElementById("Bottom_left")
+                    var BL_width = BL_Size.clientWidth - margin.left - margin.right
+                    var BL_height = BL_Size.clientHeight - margin.top - margin.bottom
+
+                    var BL_svg = d3.select("#Bottom_left").append("svg")
+                        .attr("width", BL_width + margin.left + margin.right)
+                        .attr("height", BL_height + margin.top + margin.bottom)
+                        .append("g")
+                        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                    var x = d3.scaleLinear()
+                        .range([0, BL_width]);
+
+                    var y = d3.scaleBand()
+                        .range([BL_height, 0]).padding(0.1);;
+
+                    x.domain([0, d3.max(BOEPerWellPerYear, function(d) {
+                        return d.value;
+                    })]);
+
+                    y.domain(BOEPerWellPerYear.map(function(d) {
+                        return d.key;
+                    }));
+
+                    var xAxis = d3.axisBottom(x);
+                    //make y axis to show bar keys
+                    var yAxis = d3.axisLeft(y);
+
+                    var BL_g = BL_svg.append("g")
+                        .attr("class", "y axis")
+                        .call(yAxis)
+
+                    var BL_bars = BL_svg.selectAll(".bar")
+                        .data(BOEPerWellPerYear)
+                        .enter()
+                        .append("g")
+
+                    //append rects
+                    BL_bars.append("rect")
+                        .attr("class", "bar")
+                        .attr("y", function(d) {
+                            return y(d.key);
+                        })
+                        .attr("height", y.bandwidth())
+                        .attr("x", 0)
+                        .attr("fill", function(d, i) {
+                            return c10(i);
+                        })
+                        .attr("width", function(d) {
+                            return x(d.value);
+                        });
+
+                    //add a values label to the right of each bar
+                    BL_bars.append("text")
+                        .attr("class", "label")
+                        //y position of the label is halfway down the bar
+                        .attr("y", function(d) {
+                            return y(d.key) + y.bandwidth() / 2 + 4;
+                        })
+                        //x position is 3 pixels to the right of the bar
+                        .attr("x", function(d) {
+                            return x(d.value) + 3;
+                        })
+                        .text(function(d) {
+                            return formatComma(Math.round(d.value));
+                        });
+
+                    // add textbox 
+                    BL_svg.append("text")
+                        .attr("x", (BL_width / 2))
+                        .attr("y", 0 - (margin.top / 10))
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "18px")
+                        .style("font-weight","bold")
+                        .style("text-decoration", "underline")
+                        .text("Avg 6 Month BOE per Year (STB)");
+
+                    // ------------------------------------------------------------------
+                    //(BOTTOM Right VISUALIZATION)  
+                    // ------------------------------------------------------------------     
+
+                    var NestedProduction2 = d3.nest()
+                        .key(function(d) {
+                            return d.Year > 0
+                        })
+                        .key(function(d) {
+                            return d.Year;
+                        })
+                        .key(function(d) {
+                            return d.Info_Operator;
+                        })
+                        //.rollup(function(v) { return d3.mean(v,function(d){return d.Prod_BOE6Month}); })
+                        .rollup(function(leaves) {
+                            var AVG = d3.mean(leaves, function(d) {
+                                return d.Prod_BOE6Month
+                            })
+                            var Count = d3.nest().key(function(d) {
+                                    return d.length
+                                })
+                                .entries(leaves);
+                            return {
+                                AVG: AVG,
+                                Count: Count[0].values.length
+                            };
+                        })
+                        .entries(EfData);
+
+                    Nested = NestedProduction2[0].values
+
+                    OPbyYear = [
+                        [],
+                        [],
+                        [],
+                        []
+                    ]
+                    for (var i = 0; i < Nested.length; i++) {
+                        Ops = new Array()
+                        Values = new Array()
+                        Counts = new Array()
+                        for (var j = 0; j < Nested[i].values.length; j++) {
+
+                            if (Nested[i].values[j].value.Count >= 20) {
+                                Values.push(parseFloat(Nested[i].values[j].value.AVG))
+                                Ops.push(Nested[i].values[j].key)
+                                Counts.push(Nested[i].values[j].value.Count)
+                            }
+
+                        }
+                        var Index = Values.indexOf(Math.max.apply(NaN, Values))
+                        if (Index >= 0) {
+                            OPbyYear.push([Nested[i].key, Ops[Index], Math.round(Values[Index]), Counts[Index]])
+                        }
+                    }
+
+                    OPbyYear = OPbyYear.filter(function(x) {
+                        return x[2] > 0
+                    });
+
+                    OPbyYear = OPbyYear.sort(function(a, b) {
+                        return a[0] - b[0];
+                    });
+
+                    for (var i = 0; i < OPbyYear.length; i++) {
+                        OPbyYear[i][2] = formatComma(OPbyYear[i][2])
+                    }
+
+                    var BR_Size = document.getElementById("Bottom_right")
+                    var BR_width = BR_Size.clientWidth - margin.left - margin.right
+                    var BR_height = BR_Size.clientHeight - margin.top - margin.bottom
+
+                    var table = d3.select("#Bottom_right").append("table")
+                        .attr("width", BR_width + margin.left + margin.right)
+                        .attr("height", BR_height + margin.top + margin.bottom)
+                        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+                    var header = table.append("thead").append("tr");
+
+                    header.selectAll("th")
+                        .data(["Year", "Operator", "Avg Production", "#Wells"])
+                        .enter()
+                        .append("th")
+                        .text(function(d) {
+                            return d;
+                        });
+                    var tablebody = table.append("tbody");
+                    rows = tablebody
+                        .selectAll("tr")
+                        .data(OPbyYear)
+                        .enter()
+                        .append("tr");
+                    // We built the rows using the nested array - now each row has its own array.
+                    cells = rows.selectAll("td")
+                        // each row has data associated; we get it and enter it for the cells.
+                        .data(function(d) {
+                            // console.log(d);
+                            return d;
+                        })
+                        .enter()
+                        .append("td")
+                        .text(function(d) {
+                            return d;
+                        });
+
+                }); //geoJson
+
+            }); //csv
+        }, 1000); //timeout
+    </script>
+</body>
