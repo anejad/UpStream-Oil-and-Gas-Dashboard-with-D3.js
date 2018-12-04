@@ -41,5 +41,5 @@ Dashboard has 4 panels:
 * Panel 4. (Bottom Right) Top producing operator year by year (operator with highest average 6 month BOE with atleast 20 wells)
 
 Once all files are loaded and complied, you should be able to see the following dashboard. You can zoom in the map and look for more details in the map:
-![alt text](https://github.com/anejad/Upstream-Oil-Gas-Dashboard-With-D3.JS/blob/master/Dashboard.JPG)
+![alt text](https://github.com/anejad/UpStream-Oil-and-Gas-Dashboard-with-D3.js/blob/master/Dashboard.JPG)
 
